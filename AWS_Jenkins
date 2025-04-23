@@ -1,0 +1,252 @@
+Github Link 
+https://github.com/javaexpresschannel/test1
+
+Webhooks
+http://3.71.34.65:8080/github-webhook/
+
+Jenkins Installation Steps 
+https://www.jenkins.io/doc/book/installing/linux/
+
+How to create EC2 Instance in AWS (ap-south-1)
+---------------------------------
+1) EC2 Creation in ubuntu (22.04)
+2) Instance Type : t2.large (best for installation multiple softwares)
+3) Create New Key Pair 
+5) Enable one public ip 
+6) Choose New Security Group  (jenkins_nsg)
+	-> Type : All TCP & anywhere
+7) Configure Storage 25	
+7) Launch instance
+
+How to connect in Mobaxterm?
+---------------------------------
+1) Download Software
+	https://mobaxterm.mobatek.net/download.html
+2) Open Software
+3) Click Session -> SSH
+	Remote Host : Public Ipv4 address
+	Username : Default username (ubuntu)
+	Private Key : download keypair in .pem extension
+4) Launch and Click Accept
+5) you can able to see EC2 Instance Server
+6) Settings -> Configuration -> SSH -> SSH keepalive
+
+Java Installation
+----------------- 
+sudo apt-get update
+sudo apt install openjdk-17-jre-headless -y
+
+Jenkins Installation
+--------------------
+Documentation Link:
+https://www.jenkins.io/doc/book/installing/linux/#debianubuntu
+
+sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+  
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+  
+
+sudo systemctl enable jenkins
+sudo systemctl status jenkins
+
+Optional Commands:
+----------- 
+sudo systemctl stop jenkins
+sudo systemctl start jenkins
+-----------
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+Setup Maven in Jenkins 
+----------------------
+For setting up the Maven Goto -> Manage Jenkins ->Tools-> Maven
+
+Admin Privileges for jenkins users 
+
+sudo vi /etc/sudoers 
+jenkins ALL=(ALL) NOPASSWD: ALL 
+To Save the file 
+	Enter i in keyword 
+	Paste below command 
+		jenkins ALL=(ALL) NOPASSWD: ALL 
+	Esc
+	:wq! (enter)
+	
+sudo cat -n /etc/sudoers (verification)
+sudo su - jenkins
+
+Docker Installation
+-------------------
+sudo apt install docker.io -y
+sudo usermod -aG docker jenkins 
+sudo chmod 666 /var/run/docker.sock
+
+sudo su - jenkins 
+docker images
+
+Docker Commands
+---------------
+docker build -t javaexpress/dockerimageName:latest . 
+docker login -u username -p password 
+docker push javaexpress/dockerimageName:latest 
+
+
+setup webhook in git repo 
+-------------------------
+https://github.com/javaexpresschannel/test1
+
+1) Click settings on git repo 
+2) Left side -> add webhook
+3) PayloadUrl
+http://3.71.34.65:8080/github-webhook/
+4) add web hook 
+
+Add docker credentails in jenkins 
+---------------------------------
+1) Manage Jenkins -> Credentails
+2) Click on System 
+3) Click on Global Credentails 
+4) Add Credentails 
+5) Choose Secret Text 
+6) Secret : docker pwd 
+	ID and Description : DOCKER_HUB_PASSWORD
+
+
+How to bind password for docker in pipleine syntax
+-------------------------------------------------
+1) Choose withCredentails: Bind Credentails to variables 
+2) Choose secret Text 
+3) Variable Name : PASSWORD
+
+
+Run script from git repo or directly from pipeline
+
+-------------------------
+Sonar Installation Steps 
+-------------------------
+
+Sonar Installation
+-------------------
+sudo apt-get update
+install docker
+sudo chmod 666 /var/run/docker.sock
+docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
+
+Setup Sonar 
+------------
+1) Access ipaddress:9000
+2) Change password 
+3) create project Manually and locally
+4) provide project display name and project key and branch name master 
+5) create key and use maven like below 
+
+mvn clean verify sonar:sonar \
+  -Dsonar.projectKey=springboot \
+  -Dsonar.host.url=http://15.206.74.52:9000 \
+  -Dsonar.login=sqp_f0d3d5e221af10211f76eb788b51dc3ef0f614cd
+
+6) Replace in jenkins pipleine script in sonar stage 
+
+pipeline {
+    agent any
+
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "maventool"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+              checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/javaexpresschannel/test1']])
+            }
+        }
+        
+        stage('Clean') {
+            steps {
+              sh 'mvn clean'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+              sh 'mvn install'
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+              sh 'docker build -t javaexpress/springboot_docker:latest .'
+            }
+        }
+        
+        stage('Docker Login') {
+            steps {
+                withCredentials([string(credentialsId: 'DOCKER_HUB_PASSWORD', variable: 'DOCKER_HUB_VARIABLE')]) {
+                  sh 'docker login -u javaexpress -p ${DOCKER_HUB_VARIABLE}'
+                }
+            }
+        }
+        
+        stage('Docker push') {
+            steps {
+              sh 'docker push javaexpress/springboot_docker:latest '
+            }
+        }
+        
+    }
+}
+
+
+Kubernetes Installation
+-----------------------
+
+AWSCLI
+------
+sudo su -  jenkins
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+sudo apt install unzip
+unzip awscliv2.zip
+sudo ./aws/install
+aws –-version
+
+aws configure 
+	XXXX
+	XXXX
+	ap-south-1
+
+Kubectl
+------
+curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x ./kubectl 
+sudo mv ./kubectl /usr/local/bin
+
+EKSCTL
+------
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin 
+eksctl version
+
+
+Create Kubernetes Cluster (20 min)
+-------------------------
+eksctl create cluster --name javaexpress-new-cluster --version 1.29 --region ap-south-1 --nodegroup-name worker-nodes --node-type t2.micro --nodes 2
+
+Delete LoadBalancer
+-------------------
+kubectl delete all --all
+kubectl delete svc springboot-svc 
+
+Delete Kubernetes Cluster 
+-------------------------
+eksctl delete cluster --name javaexpress-new-cluster
+
+
+
+
+
+
+
+
